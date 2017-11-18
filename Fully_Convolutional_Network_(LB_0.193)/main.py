@@ -42,6 +42,7 @@ def get_images(df):
 def ConvBlock(model, layers, filters):
     '''Create [layers] layers consisting of zero padding, a convolution with [filters] 3x3 filters and batch normalization. Perform max pooling after the last layer.'''
     for i in range(layers):
+    	model.add(Dropout(0.2))
         model.add(ZeroPadding2D((1, 1)))
         model.add(Conv2D(filters, (3, 3), activation='relu'))
         model.add(BatchNormalization(axis=3))
@@ -54,14 +55,14 @@ def create_model():
 
     # Input image: 75x75x3
     model.add(Lambda(lambda x: x, input_shape=(75, 75, 3)))
-    ConvBlock(model, 1, 32)
     # 37x37x32
-    ConvBlock(model, 1, 64)
+    ConvBlock(model, 1, 32)
     # 18x18x64
-    ConvBlock(model, 1, 128)
+    ConvBlock(model, 1, 64)
     # 9x9x128
     ConvBlock(model, 1, 128)
     # 4x4x128
+    ConvBlock(model, 1, 128)
     model.add(ZeroPadding2D((1, 1)))
     model.add(Conv2D(2, (3, 3), activation='relu'))
     model.add(GlobalAveragePooling2D())
@@ -79,7 +80,7 @@ Xtr, Xv, ytr, yv = train_test_split(X, y, shuffle=True, test_size=0.20)
 
 # Create the model and compile
 model = create_model()
-model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0005), metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0001), metrics=['accuracy'])
 model.summary()
 
 init_epo = 0
@@ -90,4 +91,11 @@ print ('lr = {}'.format(K.get_value(model.optimizer.lr)))
 history = model.fit(Xtr, ytr, validation_data=(Xv, yv), batch_size=32, epochs=end_epo, initial_epoch=init_epo)
 init_epo += num_epo
 end_epo = init_epo + num_epo
+
+
+test = pd.read_json('../data/test.json')
+Xtest = get_images(test)
+test_predictions = model.predict_proba(Xtest)
+submission = pd.DataFrame({'id': test['id'], 'is_iceberg': test_predictions[:, 1]})
+submission.to_csv('sub_fcn.csv', index=False)
 
